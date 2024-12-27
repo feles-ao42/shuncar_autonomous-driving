@@ -11,6 +11,7 @@ from shunkei_sdk import ShunkeiVTX
 # local import
 from gamepad import GamePad
 from ui import State, UI
+from track_face import FaceDetector, CameraHandler
 
 DEFAULT_PORT = 12334
 
@@ -29,24 +30,31 @@ def main():
     pygame.init()
     pygame.font.init()
 
-    if args.g29:
-        gp = GamePad(device="G29")
-    else:
-        gp = GamePad()
-    print(f"Joystick: {gp.name}")
-
     state = State()
     ui = UI(state)
 
     state.speed_level = args.speed
-    batt_voltage = 0
+    batt_voltage = 7
     batt_voltage_below_cnt = 0
     batt_alarm = False
+
+    # Camera setting
+    camera = CameraHandler(camera_id=2)
+    detector = FaceDetector()
+    print("here is feles!")
 
     # exponential backoff
     vtx: ShunkeiVTX | None = None
     while True:
         try:
+            # Capture camera
+            camera.start()
+            frame = camera.read_frame()
+            results = detector.detect(frame)
+            print("here is feles!")
+            for result in results:
+                print(f"位置: {result['position']}, サイズ: {result['size']}")
+
             # set up host and port
             if args.webrtc:
                 roomId = args.room_id
@@ -143,22 +151,15 @@ def main():
                 # ------------------------------
                 # gamepad handling
                 # ------------------------------
-                y, x = gp.get_values()
-                # update state
-                state.steering = x
-                state.throttle = y
-                # send to the car
-                steer = center_steer + (15*x) + state.steer_trim
-                updated_speed = (15 * y) / 10
-                if updated_speed < 0:
-                    speed = 90 + updated_speed * state.speed_level
-                else:
-                    speed = 90 + updated_speed * 5 # back
+
                 if not batt_alarm and not state.emergency_stop:
-                    vtx.uart_write(f"{int(steer)} {int(speed)} \n".encode())
+                    #vtx.uart_write(f"{int(steer)} {int(speed)} \n".encode())
+                    vtx.uart_write("hello".encode())
 
                 # check battery voltage. if it is too low, stop the car.
                 # battery may be lower than the limit when the car is running, so we need to check it for a while.
+                print(state.batt_voltage)
+                print(args.voltage)
                 if state.batt_voltage < args.voltage:
                     batt_voltage_below_cnt += 1
                     if batt_voltage_below_cnt > 10:
@@ -177,9 +178,9 @@ def main():
 
         except KeyboardInterrupt:
             print("Exiting...")
+            camera.stop()
             if vtx is not None:
                 vtx.close()
-            gp.close()
             print("Exited...")
             exit(0)
         except Exception as e:
