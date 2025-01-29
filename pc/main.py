@@ -39,9 +39,8 @@ def main():
     batt_alarm = False
 
     # Camera setting
-    camera = CameraHandler(camera_id=2)
+    camera = CameraHandler(camera_id=1)
     detector = FaceDetector()
-    print("here is feles!")
 
     # exponential backoff
     vtx: ShunkeiVTX | None = None
